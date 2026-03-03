@@ -1,82 +1,101 @@
 const express = require('express');
 const router = express.Router();
 const { validateProduct, validateId } = require('../middleware/validation');
+const Product = require('../models/product');
 
-let products = [];
-let productIdCounter = 1;
-
-router.get('/', (req, res) => {
-  res.json({
-    success: true,
-    data: products
-  });
-});
-
-router.get('/:id', validateId, (req, res, next) => {
-  const product = products.find(p => p.id === parseInt(req.params.id));
-  if (!product) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Product not found' }
+router.get('/', async (req, res, next) => {
+  try {
+    const products = await Product.find();
+    res.json({
+      success: true,
+      data: products
     });
+  } catch (err) {
+    next(err);
   }
-  res.json({
-    success: true,
-    data: product
-  });
 });
 
-router.post('/', validateProduct, (req, res) => {
-  const newProduct = {
-    id: productIdCounter++,
-    name: req.body.name,
-    price: req.body.price,
-    description: req.body.description || '',
-    stock: req.body.stock || 0,
-    createdAt: new Date().toISOString()
-  };
-  products.push(newProduct);
-  res.status(201).json({
-    success: true,
-    data: newProduct
-  });
-});
-
-router.put('/:id', validateId, validateProduct, (req, res) => {
-  const productIndex = products.findIndex(p => p.id === parseInt(req.params.id));
-  if (productIndex === -1) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Product not found' }
+router.get('/:id', validateId, async (req, res, next) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Product not found' }
+      });
+    }
+    res.json({
+      success: true,
+      data: product
     });
+  } catch (err) {
+    next(err);
   }
-  products[productIndex] = {
-    ...products[productIndex],
-    name: req.body.name,
-    price: req.body.price,
-    description: req.body.description || products[productIndex].description,
-    stock: req.body.stock !== undefined ? req.body.stock : products[productIndex].stock,
-    updatedAt: new Date().toISOString()
-  };
-  res.json({
-    success: true,
-    data: products[productIndex]
-  });
 });
 
-router.delete('/:id', validateId, (req, res) => {
-  const productIndex = products.findIndex(p => p.id === parseInt(req.params.id));
-  if (productIndex === -1) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Product not found' }
+router.post('/', validateProduct, async (req, res, next) => {
+  try {
+    const product = new Product({
+      name: req.body.name,
+      price: req.body.price,
+      description: req.body.description || '',
+      stock: req.body.stock || 0
     });
+    const savedProduct = await product.save();
+    res.status(201).json({
+      success: true,
+      data: savedProduct
+    });
+  } catch (err) {
+    next(err);
   }
-  products.splice(productIndex, 1);
-  res.json({
-    success: true,
-    message: 'Product deleted successfully'
-  });
+});
+
+router.put('/:id', validateId, validateProduct, async (req, res, next) => {
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: req.body.name,
+        price: req.body.price,
+        description: req.body.description,
+        stock: req.body.stock
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Product not found' }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: updatedProduct
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id', validateId, async (req, res, next) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Product not found' }
+      });
+    }
+    res.json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

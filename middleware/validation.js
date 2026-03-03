@@ -41,7 +41,7 @@ const validateOrder = [
 ];
 
 const validateId = [
-  param('id').notEmpty().withMessage('ID parameter is required'),
+  param('id').isMongoId().withMessage('Valid MongoDB ID is required'),
   validate
 ];
 
